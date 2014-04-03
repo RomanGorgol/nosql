@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
-using System.Data.Linq.Mapping;
 using System.Linq;
-using System.Runtime.InteropServices;
+using MongoDB.Driver;
 using System.Text.RegularExpressions;
 using Tweets.ModelBuilding;
 using Tweets.Models;
@@ -12,15 +11,16 @@ namespace Tweets.Repositories
 {
     public class MessageRepository : IMessageRepository
     {
-        private readonly string connectionString;
-        private readonly AttributeMappingSource mappingSource;
         private readonly IMapper<Message, MessageDocument> messageDocumentMapper;
+        private readonly MongoCollection<MessageDocument> messagesCollection;
 
         public MessageRepository(IMapper<Message, MessageDocument> messageDocumentMapper)
         {
             this.messageDocumentMapper = messageDocumentMapper;
-            mappingSource = new AttributeMappingSource();
-            connectionString = ConfigurationManager.ConnectionStrings["SqlConnectionString"].ConnectionString;
+            var connectionString = ConfigurationManager.ConnectionStrings["MongoDb"].ConnectionString;
+            var databaseName = MongoUrl.Create(connectionString).DatabaseName;
+            messagesCollection =
+                new MongoClient(connectionString).GetServer().GetDatabase(databaseName).GetCollection<MessageDocument>(MessageDocument.CollectionName);
         }
 
         public void Save(Message message)
@@ -36,7 +36,7 @@ namespace Tweets.Repositories
 
         public void Like(Guid messageId, User user)
         {
-            var likeDocument = new LikeDocument {MessageId = messageId, UserName = user.Name, CreateDate = DateTime.UtcNow};
+            var likeDocument = new LikeDocument {UserName = user.Name, CreateDate = DateTime.UtcNow};
             using (var db = new TweetsDataContext(connectionString))
             {
                 db.GetTable<LikeDocument>().InsertOnSubmit(likeDocument);
@@ -64,8 +64,8 @@ namespace Tweets.Repositories
         public IEnumerable<Message> GetPopularMessages()
         {
             //TODO: Здесь нужно возвращать 10 самых популярных сообщений
-            using (var db = new TweetsDataContext(connectionString))
-            {
+            //TODO: Важно сортировку выполнять на сервере
+            //TODO: Тут будет полезен AggregationFramework
                 return (from message in db.GetTable<MessageDocument>()
                     join like in db.GetTable<LikeDocument>() on message.Id equals like.MessageId into messageLike
                     from m in messageLike.DefaultIfEmpty()
