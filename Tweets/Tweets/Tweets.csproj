@@ -130,11 +130,6 @@
     <Compile Include="Repositories\MessageRepository.cs" />
     <Compile Include="Repositories\UserRepository.cs" />
     <Compile Include="StructurMapControllersFactory.cs" />
-    <Compile Include="Tweets.designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Tweets.dbml</DependentUpon>
-    </Compile>
     <Compile Include="TweetsRegistry.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -149,11 +144,6 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
-    <Content Include="Tweets.dbml">
-      <Generator>MSLinqToSQLGenerator</Generator>
-      <LastGenOutput>Tweets.designer.cs</LastGenOutput>
-      <SubType>Designer</SubType>
-    </Content>
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
@@ -166,11 +156,6 @@
   </ItemGroup>
   <ItemGroup>
     <Service Include="{3259AA49-8AA1-44D3-9025-A0B520596A8C}" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Tweets.dbml.layout">
-      <DependentUpon>Tweets.dbml</DependentUpon>
-    </Content>
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

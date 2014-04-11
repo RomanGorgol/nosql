@@ -2,8 +2,14 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
+using System.Net.Mime;
+using Hammock.Serialization;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;
+using MongoDB.Driver.Builders;
+using Newtonsoft.Json.Linq;
 using Tweets.ModelBuilding;
 using Tweets.Models;
 
@@ -26,38 +32,28 @@ namespace Tweets.Repositories
         public void Save(Message message)
         {
             var messageDocument = messageDocumentMapper.Map(message);
-            using (var db = new TweetsDataContext(connectionString))
-            {
-                db.GetTable<MessageDocument>().InsertOnSubmit(messageDocument);
-                db.SubmitChanges();
-            }
+            messagesCollection.Insert(messageDocument);
             //TODO: Здесь нужно реализовать вставку сообщения в базу
         }
 
         public void Like(Guid messageId, User user)
         {
             var likeDocument = new LikeDocument {UserName = user.Name, CreateDate = DateTime.UtcNow};
-            using (var db = new TweetsDataContext(connectionString))
+
+            if (
+                messagesCollection.FindOne(Query.And(Query<MessageDocument>.EQ(s=>s.Id,messageId),Query<MessageDocument>.ElemMatch(d => d.Likes,
+                    builder => builder.EQ(s => s.UserName, user.Name)))) == null)
             {
-                db.GetTable<LikeDocument>().InsertOnSubmit(likeDocument);
-                db.SubmitChanges();
+                messagesCollection.Update(Query<MessageDocument>.EQ(m => m.Id, messageId),Update<MessageDocument>.Push(s => s.Likes, likeDocument));   
             }
             //TODO: Здесь нужно реализовать вставку одобрения в базу
         }
 
         public void Dislike(Guid messageId, User user)
         {
-            using (var db = new TweetsDataContext(connectionString))
-            {
-                var likeDocument =
-                    db.GetTable<LikeDocument>()
-                        .FirstOrDefault(like => like.MessageId == messageId && like.UserName == user.Name);
-                if (likeDocument != null)
-                {
-                    db.GetTable<LikeDocument>().DeleteOnSubmit(likeDocument);
-                    db.SubmitChanges();
-                }
-            }
+            var likeDocument = new LikeDocument {UserName = user.Name};
+            messagesCollection.Update(Query<MessageDocument>.EQ(m => m.Id, messageId),
+                Update<MessageDocument>.Pull(m => m.Likes,builder=>builder.EQ(s=>s.UserName,user.Name)));
             //TODO: Здесь нужно реализовать удаление одобрения из базы
         }
 
@@ -66,60 +62,130 @@ namespace Tweets.Repositories
             //TODO: Здесь нужно возвращать 10 самых популярных сообщений
             //TODO: Важно сортировку выполнять на сервере
             //TODO: Тут будет полезен AggregationFramework
-                return (from message in db.GetTable<MessageDocument>()
-                    join like in db.GetTable<LikeDocument>() on message.Id equals like.MessageId into messageLike
-                    from m in messageLike.DefaultIfEmpty()
-                    select new
+            var condition = new BsonDocument
+            {
+                {
+                    "$or", new BsonArray
                     {
-                        message,
-                        userName = m != null ? m.UserName : null
+                        new BsonDocument
+                        {
+                            {"$eq", new BsonArray {"$likes", new BsonArray()}}
+                        },
+                        new BsonDocument
+                        {
+                            {"$eq", new BsonArray {"$likes", BsonNull.Value}}
+                        }
                     }
-                    )
-                    .GroupBy(s=>s.message)
-                    .Select(group => new Message()
+                }
+            };
+            var project1 = new BsonDocument
+            {
+                {"$project", new BsonDocument
+                {
+                    {"likes",1},
+                    {"text",1},
+                    {"createDate",1},
+                    {"userName",1},
+                    {"full_likes",new BsonDocument
                     {
-                        Id = group.Key.Id,
-                        CreateDate = group.Key.CreateDate,
-                        Text = group.Key.Text,
-                        Likes = group.Count(s=>s.userName!=null),
-                        User = new User() {Name = group.Key.UserName}
-                    })
-                    .OrderByDescending(s=>s.Likes)
-                    .Take(10)
-                    .ToArray();
-             }
-            return Enumerable.Empty<Message>();
+                        {"$cond",new BsonArray()
+                        {
+                            condition,
+                            new BsonArray(){new BsonDocument{}},
+                            "$likes",
+                        }}
+                    }},
+                    {"item",new BsonDocument
+                    {
+                        {"$cond",new BsonArray()
+                        {
+                            condition,
+                            0,
+                            1,
+                        }}
+                    }}
+                }}
+            };
+                
+            var unwind = new BsonDocument 
+                { 
+                    {"$unwind","$full_likes"} 
+                };
+            var group = new BsonDocument
+            {
+                {"$group",
+                    new BsonDocument
+                    {
+                        {"_id",new BsonDocument
+                            {
+                                {"_id","$_id"},
+                                {"text","$text"},
+                                {"createDate","$createDate"},
+                                {"userName","$userName"},
+                                {"likes","$likes"}
+                            }
+                        },
+                        {
+                            "count_likes", new BsonDocument
+                            {
+                                {"$sum", "$item"}
+                            }
+                        }
+                    }
+                }
+            };
+            var sort = new BsonDocument 
+                { 
+                    { 
+                        "$sort", 
+                        new BsonDocument 
+                            { 
+                                {"count_likes",new BsonInt32(-1)}, 
+                                {"_id.createDate",new BsonInt32(-1)} 
+                            } 
+                    } 
+                };
+            var limit = new BsonDocument 
+                { 
+                    {"$limit",10} 
+                };
+            var project2 = new BsonDocument
+            {
+                {"$project",new BsonDocument
+                    {
+                        {"_id","$_id._id"},
+                        {"text","$_id.text"},
+                        {"createDate","$_id.createDate"},
+                        {"userName","$_id.userName"},
+                        {"likes","$_id.likes"}
+                    }
+                }
+            };
+            var pipeline = new[] {project1,unwind,group,sort,limit,project2};
+            var result = messagesCollection.Aggregate(pipeline).ResultDocuments.ToList();
+            return result.Select(BsonSerializer.Deserialize<MessageDocument>).Select(d => new Message()
+            {
+                Id = d.Id,
+                Text = d.Text,
+                CreateDate = d.CreateDate,
+                User = new User() { Name = d.UserName },
+                Likes = d.Likes==null ? 0 : d.Likes.Count()
+            });
         }
 
         public IEnumerable<UserMessage> GetMessages(User user)
         {
             //TODO: Здесь нужно получать все сообщения конкретного пользователя
-            using (var db = new TweetsDataContext(connectionString))
+            var messages = messagesCollection.Find(Query<MessageDocument>.EQ(s => s.UserName, user.Name));
+            return messages.Select(s => new UserMessage()
             {
-                return (from message in db.GetTable<MessageDocument>()
-                        where message.UserName==user.Name
-                        join like in db.GetTable<LikeDocument>() on message.Id equals like.MessageId into messageLike
-                        from m in messageLike.DefaultIfEmpty()
-                        select new
-                        {
-                            message,
-                            userName = m != null ? m.UserName : null
-                        }
-                       )
-                       .GroupBy(s => s.message)
-                       .Select(group => new UserMessage()
-                       {
-                           Id = group.Key.Id,
-                           CreateDate = group.Key.CreateDate,
-                           Text = group.Key.Text,
-                           Likes = group.Count(s => s.userName != null),
-                           Liked = group.Any(s=>s.userName==s.message.UserName),
-                           User = new User() { Name = group.Key.UserName }
-                       })
-                       .OrderByDescending(s=>s.CreateDate)
-                        .ToArray();
-            }
-            return Enumerable.Empty<UserMessage>();
+                User = user,
+                CreateDate = s.CreateDate,
+                Id = s.Id,
+                Text = s.Text,
+                Likes = s.Likes==null ? 0 : s.Likes.Count(),
+                Liked = s.Likes != null && s.Likes.Select(d => d.UserName).Contains(user.Name)
+            }).OrderByDescending(s=>s.CreateDate);
         }
     }
 }
