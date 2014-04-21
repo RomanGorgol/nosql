@@ -5,16 +5,10 @@
   http://go.microsoft.com/fwlink/?LinkId=301880
   -->
 <configuration>
-  <configSections>
-    <section name="riakConfig" type="CorrugatedIron.Config.RiakClusterConfiguration, CorrugatedIron" />
-  </configSections>
+  
   <connectionStrings>
-<<<<<<< HEAD
-    <add name="SqlConnectionString"
-         connectionString="Data Source=ROMAN-PC;Initial Catalog=Tweets;Integrated Security=True" />
-=======
     <add name="MongoDb" connectionString="mongodb://localhost/tweets?safe=true" />
->>>>>>> upstream/master
+    <add name="Redis" connectionString="redis://192.168.52.168:6379" />
   </connectionStrings>
   <system.web>
     <compilation debug="true" targetFramework="4.5" />
@@ -41,9 +35,12 @@
   <appSettings>
     <add key="enableExtendedMembership" value="true" />
   </appSettings>
+<<<<<<< HEAD
   <riakConfig nodePollTime="5000" defaultRetryWaitTime="200" defaultRetryCount="3">
     <nodes>
       <node name="ubuntu" hostAddress="192.168.1.104" pbcPort="8087" restScheme="http" restPort="8098" poolSize="20" />
     </nodes>
   </riakConfig>
+=======
+>>>>>>> upstream/master
 </configuration>

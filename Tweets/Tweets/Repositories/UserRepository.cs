@@ -1,7 +1,6 @@
 ﻿using System;
 using ServiceStack.Redis;
 using System.Web.UI;
-using CorrugatedIron.Models;
 using Tweets.ModelBuilding;
 using Tweets.Models;
 
@@ -23,19 +22,18 @@ namespace Tweets.Repositories
         public void Save(User user)
         {
             //TODO: Здесь нужно реализовать сохранение пользователя в Redis
-            var o = new RiakObject(bucketName, userDocument.Id,userDocument);
-            riakClient.Put(o);
+            redisClient.As<UserDocument>();
+            var userDocument = userDocumentMapper.Map(user);
+            redisClient.Set(userDocument.Id, userDocument);
+            redisClient.Save();
         }
 
         public User Get(string userName)
         {
             //TODO: Здесь нужно доставать пользователя из Redis
-            return new User
-                   {
-                       Name = userName,
-                       DisplayName = "Какой-то пользователь",
-                       ImageUrl = new Uri("http://www.kagms.ru/upload/medialibrary/b3a/no-image-icon-md.jpg")
-                   };
-        }
+            var result = redisClient.Get<UserDocument>(userName);
+            if (result == null) return null;
+            return  userMapper.Map(result);
+		}
     }
 }

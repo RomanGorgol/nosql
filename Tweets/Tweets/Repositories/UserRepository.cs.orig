@@ -1,0 +1,64 @@
+﻿using System;
+<<<<<<< HEAD
+using System.Reflection;
+using System.Web.UI;
+using CorrugatedIron;
+using CorrugatedIron.Models;
+using Tweets.Attributes;
+=======
+using ServiceStack.Redis;
+>>>>>>> upstream/master
+using Tweets.ModelBuilding;
+using Tweets.Models;
+
+namespace Tweets.Repositories
+{
+    public class UserRepository : IUserRepository
+    {
+        private readonly RedisClient redisClient;
+        private readonly IMapper<User, UserDocument> userDocumentMapper;
+        private readonly IMapper<UserDocument, User> userMapper;
+
+        public UserRepository(RedisClient redisClient, IMapper<User, UserDocument> userDocumentMapper, IMapper<UserDocument, User> userMapper)
+        {
+            this.redisClient = redisClient;
+            this.userDocumentMapper = userDocumentMapper;
+            this.userMapper = userMapper;
+        }
+
+        public void Save(User user)
+        {
+<<<<<<< HEAD
+            var userDocument = userDocumentMapper.Map(user);
+            var o = new RiakObject(bucketName, userDocument.Id,userDocument);
+            riakClient.Put(o);
+            //TODO: Здесь нужно реализовать сохранение пользователя в Riak
+=======
+            //TODO: Здесь нужно реализовать сохранение пользователя в Redis
+>>>>>>> upstream/master
+        }
+
+        public User Get(string userName)
+        {
+<<<<<<< HEAD
+            //TODO: Здесь нужно доставать пользователя из Riak
+            var result = riakClient.Get(bucketName, userName);
+            if (result.IsSuccess)
+            {
+                var value =  result.Value.GetObject<UserDocument>();
+                return userMapper.Map(value);
+            }
+            return null;
+            
+=======
+            //TODO: Здесь нужно доставать пользователя из Redis
+            return new User
+                   {
+                       Name = userName,
+                       DisplayName = "Какой-то пользователь",
+                       ImageUrl = new Uri("http://www.kagms.ru/upload/medialibrary/b3a/no-image-icon-md.jpg")
+                   };
+>>>>>>> upstream/master
+        }
+    }
+}

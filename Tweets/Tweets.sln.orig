@@ -5,7 +5,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tweets", "Tweets\Tweets.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tweets.Tests", "Tweets.Tests\Tweets.Tests.csproj", "{8B28C4D3-804A-4143-997C-DE49254CACB5}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{BD8C8000-EC3A-47D9-874E-649DC281AC01}"
+<<<<<<< HEAD
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{67C1E1B2-0909-43E6-AA12-24CBCB9E4A03}"
+=======
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{930E16A0-49AB-4DB2-8F6B-CC28171A541F}"
+>>>>>>> upstream/master
 	ProjectSection(SolutionItems) = preProject
 		.nuget\NuGet.Config = .nuget\NuGet.Config
 		.nuget\NuGet.exe = .nuget\NuGet.exe
